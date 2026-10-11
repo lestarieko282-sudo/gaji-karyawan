@@ -33,6 +33,7 @@ jobs:
           echo "Mencari konfigurasi proyek:"
           find extracted -type f \( -name settings.gradle -o -name settings.gradle.kts \)
 
+      
       - name: Build APK
         run: |
           SETTINGS_FILE="$(find extracted -type f \( -name settings.gradle -o -name settings.gradle.kts \) | head -n 1)"
@@ -43,9 +44,25 @@ jobs:
           fi
 
           PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
-          echo "Folder proyek: $PROJECT_DIR"
+
+          APP_FILE="$(find "$PROJECT_DIR" -type f \( -path '*/app/build.gradle' -o -path '*/app/build.gradle.kts' \) | head -n 1)"
+
+          if [ -z "$APP_FILE" ]; then
+            echo "ERROR: File Gradle modul app tidak ditemukan."
+            exit 1
+          fi
+
+          echo "Menyesuaikan target Java ke versi 17 pada $APP_FILE"
+
+          sed -i \
+            -e 's/VERSION_1_8/VERSION_17/g' \
+            -e 's/"1\.8"/"17"/g' \
+            -e "s/'1\.8'/'17'/g" \
+            "$APP_FILE"
+
           cd "$PROJECT_DIR"
           gradle assembleDebug --stacktrace
+         
 
       - name: Upload APK
         if: success()
