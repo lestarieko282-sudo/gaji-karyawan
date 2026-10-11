@@ -34,6 +34,7 @@ jobs:
           find extracted -type f \( -name settings.gradle -o -name settings.gradle.kts \)
 
       
+
       - name: Build APK
         run: |
           SETTINGS_FILE="$(find extracted -type f \( -name settings.gradle -o -name settings.gradle.kts \) | head -n 1)"
@@ -45,23 +46,22 @@ jobs:
 
           PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
 
-          APP_FILE="$(find "$PROJECT_DIR" -type f \( -path '*/app/build.gradle' -o -path '*/app/build.gradle.kts' \) | head -n 1)"
+          cat > /tmp/force-jvm17.gradle <<'EOF'
+          import org.gradle.api.tasks.compile.JavaCompile
 
-          if [ -z "$APP_FILE" ]; then
-            echo "ERROR: File Gradle modul app tidak ditemukan."
-            exit 1
-          fi
-
-          echo "Menyesuaikan target Java ke versi 17 pada $APP_FILE"
-
-          sed -i \
-            -e 's/VERSION_1_8/VERSION_17/g' \
-            -e 's/"1\.8"/"17"/g' \
-            -e "s/'1\.8'/'17'/g" \
-            "$APP_FILE"
+          gradle.taskGraph.whenReady {
+              gradle.rootProject.allprojects.each { project ->
+                  project.tasks.withType(JavaCompile).each { task ->
+                      task.sourceCompatibility = '17'
+                      task.targetCompatibility = '17'
+                  }
+              }
+          }
+          EOF
 
           cd "$PROJECT_DIR"
-          gradle assembleDebug --stacktrace
+          gradle -I /tmp/force-jvm17.gradle assembleDebug --stacktrace
+          
          
 
       - name: Upload APK
